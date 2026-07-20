@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% block title %}{{ qr.name }}{% endblock %}
+{% block content %}
+<div class="page-header">
+  <h1>{{ qr.name }}</h1>
+  <div class="header-actions">
+    <a href="{{ url_for('qr_edit', slug=qr.slug) }}" class="btn">Editar</a>
+    <form method="POST" action="{{ url_for('qr_delete', slug=qr.slug) }}" onsubmit="return confirm('Excluir este QR Code?');">
+      {{ delete_form.hidden_tag() }}
+      <button type="submit" class="btn btn-danger">Excluir</button>
+    </form>
+  </div>
+</div>
+
+<div class="detail-grid">
+  <div class="card qr-preview-card">
+    <img class="qr-image" src="{{ url_for('qr_preview', slug=qr.slug) }}" alt="QR Code {{ qr.name }}">
+    <p class="muted small">Aponte a câmera para testar, ou acesse:<br><code>{{ encoded_url }}</code></p>
+    {% if not qr.desktop_url %}
+    <p class="muted small">⚠️ Nenhuma "URL de destino do QR Code" configurada — o QR aponta para o
+      link interno deste app (<code>{{ redirect_url }}</code>), que só funciona com este servidor
+      ligado e acessível por quem escaneou.</p>
+    {% endif %}
+    <div class="download-row">
+      <a class="btn btn-small" href="{{ url_for('qr_download', slug=qr.slug, fmt='png') }}">Baixar PNG</a>
+      <a class="btn btn-small" href="{{ url_for('qr_download', slug=qr.slug, fmt='jpg') }}">Baixar JPG</a>
+      <a class="btn btn-small" href="{{ url_for('qr_download', slug=qr.slug, fmt='pdf') }}">Baixar PDF</a>
+    </div>
+    {% if qr.android_url or qr.ios_url %}
+    <div class="download-row">
+      <a class="btn btn-small" href="{{ url_for('qr_netlify_page', slug=qr.slug) }}">Baixar página p/ Netlify (index.html)</a>
+    </div>
+    {% endif %}
+  </div>
+
+  <div class="card">
+    <h2>Destinos configurados</h2>
+    <ul class="kv-list">
+      <li><strong>Android:</strong> {{ qr.android_url or '—' }}</li>
+      <li><strong>iOS:</strong> {{ qr.ios_url or '—' }}</li>
+      <li><strong>URL do QR Code:</strong> {{ qr.desktop_url or '(usando link interno)' }}</li>
+    </ul>
+    <h2>Aparência</h2>
+    <ul class="kv-list">
+      <li><strong>Degradê:</strong> {{ qr.color_start }} → {{ qr.color_end }} ({{ qr.gradient_direction }})</li>
+      <li><strong>Cor da borda:</strong> {{ qr.border_color }}</li>
+      <li><strong>Texto acima:</strong> {{ qr.caption_text or '—' }}</li>
+      <li><strong>Logo:</strong> {{ 'sim' if qr.logo_filename else 'não' }}</li>
+    </ul>
+  </div>
+</div>
+{% endblock %}

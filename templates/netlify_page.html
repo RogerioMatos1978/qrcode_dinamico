@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{{ qr_name }}</title>
+<style>
+  :root{ --grad-start:#4F46E5; --grad-end:#06B6D4; }
+  *{box-sizing:border-box;}
+  body{
+    margin:0; min-height:100vh; display:flex; align-items:center; justify-content:center;
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;
+    background:linear-gradient(135deg,var(--grad-start),var(--grad-end));
+    color:#0f172a; text-align:center; padding:24px;
+  }
+  .card{
+    background:#fff; border-radius:16px; padding:36px 28px; max-width:380px; width:100%;
+    box-shadow:0 20px 40px rgba(15,23,42,.25);
+  }
+  .spinner{
+    width:38px; height:38px; margin:0 auto 18px; border-radius:50%;
+    border:4px solid #e2e8f0; border-top-color:var(--grad-start);
+    animation:spin .9s linear infinite;
+  }
+  @keyframes spin{to{transform:rotate(360deg);}}
+  h1{font-size:18px; margin:0 0 6px;}
+  p{font-size:14px; color:#64748b; margin:0 0 22px;}
+  .btn{ display:block; width:100%; padding:12px 16px; border-radius:10px; margin-bottom:10px; text-decoration:none; font-weight:600; font-size:14px; }
+  .btn-android{background:#22c55e; color:#fff;}
+  .btn-ios{background:#0f172a; color:#fff;}
+  .hidden{display:none;}
+</style>
+</head>
+<body>
+<div class="card">
+  <div id="loading">
+    <div class="spinner"></div>
+    <p>Redirecionando para o app...</p>
+  </div>
+  <div id="manual" class="hidden">
+    <h1>{{ qr_name }}</h1>
+    <p>Baixe o aplicativo na loja do seu dispositivo:</p>
+    {% if android_url %}<a class="btn btn-android" href="{{ android_url }}">Baixar no Google Play (Android)</a>{% endif %}
+    {% if ios_url %}<a class="btn btn-ios" href="{{ ios_url }}">Baixar na App Store (iPhone/iPad)</a>{% endif %}
+  </div>
+</div>
+
+<script>
+(function () {
+  // Gerado automaticamente a partir do painel do Gerador de QR Code Dinamico.
+  // Edite estas duas linhas aqui se as URLs das lojas mudarem no futuro.
+  var ANDROID_URL = {{ (android_url or "")|tojson }};
+  var IOS_URL = {{ (ios_url or "")|tojson }};
+
+  function detectDevice() {
+    var ua = navigator.userAgent.toLowerCase();
+    if (ua.indexOf("android") !== -1) return "android";
+    if (/iphone|ipad|ipod/.test(ua)) return "ios";
+    return "desktop";
+  }
+  function showManual() {
+    document.getElementById("loading").classList.add("hidden");
+    document.getElementById("manual").classList.remove("hidden");
+  }
+  function goTo(url) {
+    if (!url) { showManual(); return; }
+    window.location.replace(url);
+  }
+  function redirectNow() {
+    var device = detectDevice();
+    if (device === "android") return goTo(ANDROID_URL);
+    if (device === "ios") return goTo(IOS_URL);
+    showManual();
+  }
+  redirectNow();
+})();
+</script>
+</body>
+</html>

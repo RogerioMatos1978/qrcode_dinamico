@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% block title %}Painel{% endblock %}
+{% block content %}
+<div class="page-header">
+  <h1>Meus QR Codes</h1>
+  <a href="{{ url_for('qr_new') }}" class="btn btn-primary">+ Novo QR Code</a>
+</div>
+
+<div class="stats-row">
+  <div class="stat-card">
+    <span class="stat-value">{{ qrcodes|length }}</span>
+    <span class="stat-label">QR Codes criados</span>
+  </div>
+</div>
+
+{% if not qrcodes %}
+  <p class="muted">Você ainda não criou nenhum QR Code. <a href="{{ url_for('qr_new') }}">Crie o primeiro agora</a>.</p>
+{% else %}
+<div class="qr-grid">
+  {% for qr in qrcodes %}
+  <div class="qr-card">
+    <a href="{{ url_for('qr_detail', slug=qr.slug) }}" class="qr-card-thumb-link">
+      <img class="qr-card-thumb-img" src="{{ url_for('qr_preview', slug=qr.slug) }}" alt="QR Code {{ qr.name }}">
+    </a>
+    <div class="qr-card-body">
+      <h3>{{ qr.name }}</h3>
+      <p class="muted small">/r/{{ qr.slug }}</p>
+      <div class="qr-card-actions">
+        <a class="btn btn-small" href="{{ url_for('qr_detail', slug=qr.slug) }}">Ver detalhes</a>
+        <a class="btn btn-small" href="{{ url_for('qr_edit', slug=qr.slug) }}">Editar</a>
+        <form method="POST" action="{{ url_for('qr_delete', slug=qr.slug) }}" onsubmit="return confirm('Excluir este QR Code?');">
+          {{ delete_form.hidden_tag() }}
+          <button type="submit" class="btn btn-small btn-danger">Excluir</button>
+        </form>
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,7 @@
+# Instale este arquivo SOMENTE se for usar PostgreSQL em vez do SQLite padrao:
+#   pip install -r requirements.txt -r requirements-postgres.txt
+#
+# psycopg2-binary sem pin de versao, para o pip conseguir escolher uma
+# versao que ja tenha "wheel" pronta para o seu Python/sistema operacional
+# (evita erro de compilacao pedindo "pg_config").
+psycopg2-binary

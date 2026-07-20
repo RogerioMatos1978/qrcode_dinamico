@@ -1,0 +1,9 @@
+{% extends "base.html" %}
+{% block title %}Muitas tentativas{% endblock %}
+{% block content %}
+<div class="card" style="text-align:center;">
+  <h1>429</h1>
+  <p>Muitas tentativas em pouco tempo. Aguarde alguns minutos e tente novamente.</p>
+  <a class="btn btn-primary" href="{{ url_for('index') }}">Voltar ao início</a>
+</div>
+{% endblock %}

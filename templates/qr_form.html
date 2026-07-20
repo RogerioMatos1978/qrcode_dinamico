@@ -1,0 +1,102 @@
+{% extends "base.html" %}
+{% block title %}{{ 'Editar' if mode == 'editar' else 'Novo' }} QR Code{% endblock %}
+{% block content %}
+<div class="card">
+  <h1>{{ 'Editar QR Code' if mode == 'editar' else 'Novo QR Code' }}</h1>
+  <form method="POST" enctype="multipart/form-data" novalidate class="qr-form">
+    {{ form.hidden_tag() }}
+
+    <div class="field">
+      {{ form.name.label }}
+      {{ form.name(class_="input") }}
+      {% for e in form.name.errors %}<small class="error">{{ e }}</small>{% endfor %}
+    </div>
+
+    <fieldset>
+      <legend>Lojas do aplicativo</legend>
+      <div class="field">
+        {{ form.android_url.label }}
+        {{ form.android_url(class_="input", placeholder="https://play.google.com/store/apps/details?id=...") }}
+        {% for e in form.android_url.errors %}<small class="error">{{ e }}</small>{% endfor %}
+      </div>
+      <div class="field">
+        {{ form.ios_url.label }}
+        {{ form.ios_url(class_="input", placeholder="https://apps.apple.com/app/...") }}
+        {% for e in form.ios_url.errors %}<small class="error">{{ e }}</small>{% endfor %}
+      </div>
+      <p class="muted small">Essas duas URLs são usadas para: (1) o link interno /r/&lt;codigo&gt; deste app, quando ele estiver rodando; e (2) para pré-preencher o download da "página Netlify" abaixo (na tela de detalhes do QR Code).</p>
+    </fieldset>
+
+    <fieldset>
+      <legend>URL que o QR Code vai carregar</legend>
+      <div class="field">
+        {{ form.desktop_url.label }}
+        {{ form.desktop_url(class_="input", placeholder="https://qrcodedinamicsenai.netlify.app/") }}
+        {% for e in form.desktop_url.errors %}<small class="error">{{ e }}</small>{% endfor %}
+      </div>
+      <p class="muted small">
+        <strong>Preenchendo este campo</strong>, a imagem do QR Code gerada aponta direto para essa
+        URL (ex: sua página no Netlify) — funciona mesmo com este sistema rodando só na sua máquina
+        local, porque quem escaneia acessa a URL pública, não este servidor.<br>
+        <strong>Deixando em branco</strong>, o QR Code aponta para o link interno deste app
+        (<code>/r/&lt;codigo&gt;</code>), que só funciona enquanto este servidor estiver ligado e
+        acessível pela rede de quem escaneou.
+      </p>
+    </fieldset>
+
+    <fieldset>
+      <legend>Personalização visual (degradê)</legend>
+      <div class="color-row">
+        <div class="field">
+          {{ form.color_start.label }}
+          <input type="color" id="color_start_picker" value="{{ form.color_start.data or '#4F46E5' }}">
+          {{ form.color_start(class_="input hex-input") }}
+        </div>
+        <div class="field">
+          {{ form.color_end.label }}
+          <input type="color" id="color_end_picker" value="{{ form.color_end.data or '#06B6D4' }}">
+          {{ form.color_end(class_="input hex-input") }}
+        </div>
+      </div>
+      <div class="field">
+        {{ form.gradient_direction.label }}
+        {{ form.gradient_direction(class_="input") }}
+      </div>
+      <div id="gradient-preview" class="gradient-preview"></div>
+    </fieldset>
+
+    <fieldset>
+      <legend>Borda, texto e logo</legend>
+      <div class="field">
+        {{ form.border_color.label }}
+        <input type="color" id="border_color_picker" value="{{ form.border_color.data or '#FFFFFF' }}">
+        {{ form.border_color(class_="input hex-input") }}
+        {% for e in form.border_color.errors %}<small class="error">{{ e }}</small>{% endfor %}
+      </div>
+      <div class="field">
+        {{ form.caption_text.label }}
+        {{ form.caption_text(class_="input", placeholder="Aponte a câmera para o QR Code") }}
+        {% for e in form.caption_text.errors %}<small class="error">{{ e }}</small>{% endfor %}
+        <small class="muted">Aparece impresso acima do QR Code, nas imagens exportadas.</small>
+      </div>
+      <div class="field">
+        {{ form.logo.label }}
+        {{ form.logo(class_="input file-input") }}
+        {% for e in form.logo.errors %}<small class="error">{{ e }}</small>{% endfor %}
+        <small class="muted">Imagem quadrada (ideal 300x300px), PNG ou JPG, até 3 MB. É centralizada
+          dentro do QR Code automaticamente.</small>
+        {% if qr and qr.logo_filename %}
+          <img class="logo-preview" src="{{ url_for('static', filename='logos/' ~ qr.logo_filename) }}" alt="Logo atual">
+          <label class="checkbox-field">{{ form.remove_logo() }} {{ form.remove_logo.label }}</label>
+        {% endif %}
+      </div>
+    </fieldset>
+
+    <button type="submit" class="btn btn-primary">Salvar</button>
+    {% if qr %}
+      <a href="{{ url_for('qr_detail', slug=qr.slug) }}" class="btn">Cancelar</a>
+    {% endif %}
+  </form>
+</div>
+<script src="{{ url_for('static', filename='js/qr_form.js') }}"></script>
+{% endblock %}
