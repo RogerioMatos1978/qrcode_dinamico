@@ -12,7 +12,6 @@ from flask_wtf.file import FileField, FileAllowed, FileSize
 from wtforms import StringField, PasswordField, BooleanField, SelectField, HiddenField
 from wtforms.validators import (
     DataRequired,
-    Email,
     EqualTo,
     Length,
     Regexp,
@@ -33,7 +32,6 @@ class RegisterForm(FlaskForm):
             Regexp(r"^[A-Za-z0-9_.\-]+$", message=USERNAME_MSG),
         ],
     )
-    email = StringField("E-mail", validators=[DataRequired(), Email(), Length(max=120)])
     password = PasswordField(
         "Senha",
         validators=[
@@ -52,7 +50,7 @@ class RegisterForm(FlaskForm):
 
 
 class LoginForm(FlaskForm):
-    username = StringField("Usuário ou e-mail", validators=[DataRequired(), Length(max=120)])
+    username = StringField("Usuário", validators=[DataRequired(), Length(max=120)])
     password = PasswordField("Senha", validators=[DataRequired()])
     remember = BooleanField("Manter conectado")
 

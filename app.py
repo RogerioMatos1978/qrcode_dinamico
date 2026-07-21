@@ -35,7 +35,6 @@ from flask_login import (
     login_required,
     current_user,
 )
-from sqlalchemy import or_
 from PIL import Image
 from werkzeug.utils import secure_filename
 
@@ -95,14 +94,12 @@ def register_routes(app: Flask) -> None:
 
         form = RegisterForm()
         if form.validate_on_submit():
-            existing = User.query.filter(
-                or_(User.username == form.username.data, User.email == form.email.data)
-            ).first()
+            existing = User.query.filter_by(username=form.username.data).first()
             if existing:
-                flash("Usuário ou e-mail já cadastrado.", "danger")
+                flash("Usuário já cadastrado.", "danger")
                 return render_template("register.html", form=form)
 
-            user = User(username=form.username.data, email=form.email.data)
+            user = User(username=form.username.data)
             user.set_password(form.password.data)
             db.session.add(user)
             db.session.commit()
@@ -120,9 +117,7 @@ def register_routes(app: Flask) -> None:
         form = LoginForm()
         if form.validate_on_submit():
             identifier = form.username.data
-            user = User.query.filter(
-                or_(User.username == identifier, User.email == identifier)
-            ).first()
+            user = User.query.filter_by(username=identifier).first()
 
             if user and user.is_locked():
                 flash(

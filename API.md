@@ -44,13 +44,12 @@ Cria uma conta. Limite: **10 requisições por hora por IP**.
 |---|---|---|---|
 | `csrf_token` | string | sim | token da página `/registrar` |
 | `username` | string | sim | 3–30 caracteres, apenas letras/números/`.`/`-`/`_` |
-| `email` | string | sim | formato de e-mail, até 120 caracteres |
 | `password` | string | sim | mínimo 8 caracteres, com pelo menos 1 letra e 1 número |
 | `confirm_password` | string | sim | precisa ser igual a `password` |
 
 **Retorno:**
 - Sucesso: `302` → redireciona para `/login`.
-- Falha de validação ou usuário/e-mail já existente: `200` (reexibe o
+- Falha de validação ou usuário já existente: `200` (reexibe o
   formulário com a mensagem de erro no HTML, não usa JSON).
 
 **Erros possíveis:**
@@ -67,7 +66,7 @@ Autentica e cria a sessão. Limite: **15 requisições por 5 minutos por IP**.
 | Campo | Tipo | Obrigatório |
 |---|---|---|
 | `csrf_token` | string | sim |
-| `username` | string | sim (aceita usuário **ou** e-mail) |
+| `username` | string | sim |
 | `password` | string | sim |
 | `remember` | checkbox (`on`) | não — mantém a sessão após fechar o navegador |
 
@@ -240,7 +239,6 @@ curl -b cookies.txt -c cookies.txt -s -o /dev/null -w "%{http_code}\n" \
   -X POST http://localhost:5000/registrar \
   -d "csrf_token=$TOKEN" \
   -d "username=empresa_teste" \
-  -d "email=empresa@teste.com" \
   -d "password=SenhaForte123" \
   -d "confirm_password=SenhaForte123"
 # saída esperada: 302
@@ -288,7 +286,7 @@ Location: /qr/9tiErpnF
 
 ## Modelos de dados (para referência)
 
-**`User`** (`models.py`): `id`, `username`, `email`, `password_hash`,
+**`User`** (`models.py`): `id`, `username`, `password_hash`,
 `created_at`, `failed_login_attempts`, `locked_until`.
 
 **`QRCode`** (`models.py`): `id`, `user_id`, `name`, `slug`, `android_url`,
