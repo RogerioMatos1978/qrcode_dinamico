@@ -150,6 +150,11 @@ legend { padding: 0 8px; font-weight: 600; color: var(--muted); font-size: 13px;
 .scan-table { width: 100%; border-collapse: collapse; font-size: 13px; }
 .scan-table th, .scan-table td { padding: 8px 10px; border-bottom: 1px solid var(--border); text-align: left; white-space: nowrap; }
 
+.kv-table { width: 100%; border-collapse: collapse; font-size: 14px; }
+.kv-table th, .kv-table td { padding: 10px 12px; border-bottom: 1px solid var(--border); text-align: left; }
+.kv-table th { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: 0.03em; }
+.kv-table form { margin: 0; }
+
 .footer { text-align: center; padding: 16px; color: var(--muted); font-size: 12px; }
 
 @media (max-width: 720px) {

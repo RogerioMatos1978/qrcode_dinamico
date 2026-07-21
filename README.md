@@ -12,6 +12,14 @@ chamada) e exportação em PNG, JPG e PDF.
   CSRF, proteção contra SQL Injection (ORM com consultas parametrizadas),
   bloqueio temporário de conta após tentativas de login malsucedidas e limite
   de requisições (rate limiting) contra força bruta.
+- Dois papéis de usuário: **master** (controle total: pode editar/excluir o
+  QR Code de qualquer pessoa, gerenciar o papel de outros usuários e é o
+  único que vê os recursos de publicação no Netlify) e **padrão** (só pode
+  editar/excluir os próprios QR Codes). O primeiro usuário que se cadastra no
+  sistema vira master automaticamente. Veja a seção **Papéis de usuário
+  (master x padrão)** abaixo.
+- Painel compartilhado: todo usuário logado vê os QR Codes criados por
+  qualquer pessoa (não só os seus).
 - Cada QR Code guarda a URL da Google Play (Android) e da App Store (iOS), e
   opcionalmente uma "URL de destino do QR Code" (ex: uma página publicada no
   Netlify). Veja a seção **Rodando só localmente x publicando no Netlify**
@@ -41,6 +49,8 @@ qrcode_dinamico/
   static/css, static/js, static/logos (logos enviados)
   requirements.txt          # dependências principais (SQLite já incluso)
   requirements-postgres.txt # driver do PostgreSQL, instale só se for usar Postgres
+  iniciar_servidor.bat # (Windows) atalho para ligar o servidor com 1 clique
+  descobrir_ip.bat     # (Windows) mostra o IP desta máquina na rede local
   .env.example
 ```
 
@@ -64,6 +74,72 @@ QR Code:
   Netlify (index.html)"** gera um arquivo HTML pronto — com as URLs de
   Android e iOS já preenchidas e a lógica de redirecionamento por
   dispositivo em JavaScript puro — para você publicar direto no Netlify.
+  **Esse botão só aparece para o usuário master** (veja a seção **Papéis de
+  usuário** abaixo).
+
+## Papéis de usuário (master x padrão)
+
+- **O primeiro usuário que se cadastrar no sistema vira master automaticamente.**
+  Não existe tela para "escolher" isso — é sempre o primeiro cadastro.
+- **Master:** pode editar e excluir o QR Code de qualquer usuário, tem uma
+  página extra em "Usuários" (menu superior) para promover/rebaixar o papel
+  de qualquer conta, e é o único que vê o botão **"Baixar página p/ Netlify"**
+  na tela de detalhes do QR Code.
+- **Padrão:** vê no painel os QR Codes de todo mundo, mas só pode editar ou
+  excluir os que ele mesmo criou. Não vê o botão/textos relacionados ao
+  Netlify.
+- Se o sistema já estava em uso antes desta versão (banco de dados antigo,
+  sem a coluna de papel), não é preciso apagar nada: ao iniciar, o app
+  adiciona a coluna que falta sozinho e promove automaticamente o usuário
+  mais antigo a master.
+- Para promover manualmente outro usuário a master mais tarde, entre com uma
+  conta master e acesse **Usuários** no menu superior.
+
+## Rodando na rede local (acessar de outros computadores/celulares)
+
+O servidor já fica disponível para qualquer dispositivo da mesma rede
+Wi-Fi/cabeada, não só o computador onde ele está rodando (`app.run(host="0.0.0.0", ...)`
+em `app.py`). Faltam só dois ajustes:
+
+1. **Descubra o IP desta máquina na rede.** Dê duplo clique em
+   `descobrir_ip.bat` (ou rode `ipconfig` no terminal) e procure a linha
+   "IPv4 Address" — algo como `192.168.0.10`.
+2. **Configure o `BASE_URL` no `.env`** para usar esse IP em vez de
+   `localhost`:
+
+   ```
+   BASE_URL=http://192.168.0.10:5000
+   ```
+
+   Isso é importante para os QR Codes que usam o link interno
+   (`/r/<codigo>`, quando o campo "URL de destino do QR Code" está vazio) —
+   sem isso, o link gerado só funciona no próprio computador que roda o
+   servidor.
+3. **Libere a porta 5000 no Firewall do Windows**, se outros dispositivos não
+   conseguirem acessar: Painel de Controle → Sistema e Segurança → Firewall
+   do Windows Defender → Configurações Avançadas → Regras de Entrada → Nova
+   Regra → Porta → TCP → `5000` → Permitir a conexão.
+4. Nos outros dispositivos da mesma rede, acesse `http://192.168.0.10:5000`
+   (troque pelo IP encontrado no passo 1).
+
+> Isso só funciona enquanto o computador que roda o servidor estiver ligado
+> e os outros dispositivos estiverem na mesma rede. Para acesso de qualquer
+> lugar (internet), veja a seção **Publicando** mais abaixo.
+
+## Atalho na área de trabalho (Windows)
+
+Para não precisar abrir o terminal toda vez:
+
+1. Dê duplo clique em `iniciar_servidor.bat` (dentro da pasta do projeto)
+   para ligar o servidor — ele detecta sozinho o ambiente virtual (`.venv`
+   ou `venv`) e mostra o endereço para acessar.
+2. Para criar um atalho na área de trabalho: clique com o botão direito em
+   `iniciar_servidor.bat` → **Enviar para** → **Área de trabalho (criar
+   atalho)**.
+3. (Opcional) Para trocar o ícone do atalho: clique com o botão direito no
+   atalho → Propriedades → **Alterar Ícone**.
+4. Para parar o servidor, feche a janela preta que abriu (ou pressione
+   `CTRL+C` dentro dela).
 
 ## Como rodar localmente (passo a passo para iniciantes)
 

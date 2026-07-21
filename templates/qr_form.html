@@ -24,7 +24,11 @@
         {{ form.ios_url(class_="input", placeholder="https://apps.apple.com/app/...") }}
         {% for e in form.ios_url.errors %}<small class="error">{{ e }}</small>{% endfor %}
       </div>
+      {% if current_user.is_master %}
       <p class="muted small">Essas duas URLs são usadas para: (1) o link interno /r/&lt;codigo&gt; deste app, quando ele estiver rodando; e (2) para pré-preencher o download da "página Netlify" abaixo (na tela de detalhes do QR Code).</p>
+      {% else %}
+      <p class="muted small">Essas duas URLs são usadas para o redirecionamento por dispositivo: quem escanear no Android cai na Google Play, e no iOS cai na App Store.</p>
+      {% endif %}
     </fieldset>
 
     <fieldset>
@@ -34,6 +38,7 @@
         {{ form.desktop_url(class_="input", placeholder="https://qrcodedinamicsenai.netlify.app/") }}
         {% for e in form.desktop_url.errors %}<small class="error">{{ e }}</small>{% endfor %}
       </div>
+      {% if current_user.is_master %}
       <p class="muted small">
         <strong>Preenchendo este campo</strong>, a imagem do QR Code gerada aponta direto para essa
         URL (ex: sua página no Netlify) — funciona mesmo com este sistema rodando só na sua máquina
@@ -42,6 +47,14 @@
         (<code>/r/&lt;codigo&gt;</code>), que só funciona enquanto este servidor estiver ligado e
         acessível pela rede de quem escaneou.
       </p>
+      {% else %}
+      <p class="muted small">
+        <strong>Preenchendo este campo</strong>, a imagem do QR Code aponta direto para essa URL
+        pública, e funciona mesmo com o sistema desligado.<br>
+        <strong>Deixando em branco</strong>, o QR Code aponta para o link interno deste app, que só
+        funciona com o servidor ligado e acessível pela rede de quem escaneou.
+      </p>
+      {% endif %}
     </fieldset>
 
     <fieldset>

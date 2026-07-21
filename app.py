@@ -38,9 +38,11 @@ from flask_login import (
 from PIL import Image
 from werkzeug.utils import secure_filename
 
+from sqlalchemy import inspect, text
+
 from config import Config
 from extensions import db, login_manager, csrf, limiter
-from models import User, QRCode
+from models import User, QRCode, ROLE_MASTER, ROLE_PADRAO
 from forms import RegisterForm, LoginForm, QRCodeForm, DeleteForm
 from security_utils import (
     detect_device,
@@ -71,9 +73,34 @@ def create_app() -> Flask:
 
     with app.app_context():
         db.create_all()
+        _migrate_add_role_column()
 
     register_routes(app)
     return app
+
+
+def _migrate_add_role_column() -> None:
+    """Migração leve e aditiva: quem já vinha usando uma versão anterior do
+    app (sem a coluna "role") não perde o banco de dados. Só adiciona a
+    coluna que falta e promove o usuário mais antigo a master, se ainda não
+    houver nenhum master cadastrado."""
+    inspector = inspect(db.engine)
+    if "users" not in inspector.get_table_names():
+        return
+
+    columns = {col["name"] for col in inspector.get_columns("users")}
+    if "role" not in columns:
+        with db.engine.begin() as conn:
+            conn.execute(text(
+                f"ALTER TABLE users ADD COLUMN role VARCHAR(20) NOT NULL DEFAULT '{ROLE_PADRAO}'"
+            ))
+
+    tem_master = User.query.filter_by(role=ROLE_MASTER).first()
+    if not tem_master:
+        primeiro_usuario = User.query.order_by(User.id.asc()).first()
+        if primeiro_usuario:
+            primeiro_usuario.role = ROLE_MASTER
+            db.session.commit()
 
 
 def register_routes(app: Flask) -> None:
@@ -99,7 +126,8 @@ def register_routes(app: Flask) -> None:
                 flash("Usuário já cadastrado.", "danger")
                 return render_template("register.html", form=form)
 
-            user = User(username=form.username.data)
+            eh_primeiro_usuario = User.query.count() == 0
+            user = User(username=form.username.data, role=ROLE_MASTER if eh_primeiro_usuario else ROLE_PADRAO)
             user.set_password(form.password.data)
             db.session.add(user)
             db.session.commit()
@@ -163,11 +191,9 @@ def register_routes(app: Flask) -> None:
     @app.route("/dashboard")
     @login_required
     def dashboard():
-        qrcodes = (
-            QRCode.query.filter_by(user_id=current_user.id)
-            .order_by(QRCode.created_at.desc())
-            .all()
-        )
+        # Painel compartilhado: todo usuário logado vê os QR Codes criados
+        # por qualquer pessoa. Só editar/excluir é restrito (ver can_manage).
+        qrcodes = QRCode.query.order_by(QRCode.created_at.desc()).all()
         delete_form = DeleteForm()
         return render_template("dashboard.html", qrcodes=qrcodes, delete_form=delete_form)
 
@@ -175,11 +201,23 @@ def register_routes(app: Flask) -> None:
     # CRUD de QR Codes
     # ---------------------------------------------------------------
 
-    def get_owned_qrcode_or_404(slug: str) -> QRCode:
+    def get_qrcode_or_404(slug: str) -> QRCode:
+        """Busca o QR Code pelo slug. A visualização é liberada para
+        qualquer usuário logado (painel compartilhado); quem pode
+        editar/excluir é decidido à parte, por require_manage()."""
         qr = QRCode.query.filter_by(slug=slug).first()
-        if qr is None or qr.user_id != current_user.id:
+        if qr is None:
             abort(404)
         return qr
+
+    def require_manage(qr: QRCode) -> None:
+        """Só o dono do QR Code ou o usuário master podem editar/excluir."""
+        if not current_user.can_manage(qr):
+            abort(403)
+
+    def require_master() -> None:
+        if not current_user.is_master:
+            abort(403)
 
     def qr_encoded_target(app, qr: QRCode) -> str:
         """Decide qual URL fica gravada dentro da imagem do QR Code.
@@ -250,7 +288,7 @@ def register_routes(app: Flask) -> None:
     @app.route("/qr/<slug>", methods=["GET"])
     @login_required
     def qr_detail(slug):
-        qr = get_owned_qrcode_or_404(slug)
+        qr = get_qrcode_or_404(slug)
         delete_form = DeleteForm()
         internal_url = f"{app.config['BASE_URL']}/r/{qr.slug}"
         encoded_url = qr_encoded_target(app, qr)
@@ -260,12 +298,14 @@ def register_routes(app: Flask) -> None:
             redirect_url=internal_url,
             encoded_url=encoded_url,
             delete_form=delete_form,
+            can_manage=current_user.can_manage(qr),
         )
 
     @app.route("/qr/<slug>/editar", methods=["GET", "POST"])
     @login_required
     def qr_edit(slug):
-        qr = get_owned_qrcode_or_404(slug)
+        qr = get_qrcode_or_404(slug)
+        require_manage(qr)
         form = QRCodeForm(obj=qr)
         if request.method == "GET":
             form.remove_logo.data = False
@@ -301,11 +341,51 @@ def register_routes(app: Flask) -> None:
         form = DeleteForm()
         if not form.validate_on_submit():
             abort(400)
-        qr = get_owned_qrcode_or_404(slug)
+        qr = get_qrcode_or_404(slug)
+        require_manage(qr)
         db.session.delete(qr)
         db.session.commit()
         flash("QR Code excluído.", "info")
         return redirect(url_for("dashboard"))
+
+    # ---------------------------------------------------------------
+    # Gerenciamento de usuários (restrito ao usuário master): permite
+    # promover um usuário padrão a master ou rebaixar um master a padrão.
+    # ---------------------------------------------------------------
+
+    @app.route("/usuarios")
+    @login_required
+    def usuarios_list():
+        require_master()
+        usuarios = User.query.order_by(User.created_at.asc()).all()
+        delete_form = DeleteForm()  # reaproveitado só para o token CSRF
+        return render_template("usuarios.html", usuarios=usuarios, form=delete_form)
+
+    @app.route("/usuarios/<int:user_id>/papel", methods=["POST"])
+    @login_required
+    def usuarios_alternar_papel(user_id):
+        require_master()
+        form = DeleteForm()
+        if not form.validate_on_submit():
+            abort(400)
+
+        alvo = db.session.get(User, user_id)
+        if alvo is None:
+            abort(404)
+
+        if alvo.is_master:
+            outros_masters = User.query.filter(User.role == ROLE_MASTER, User.id != alvo.id).count()
+            if outros_masters == 0:
+                flash("Não é possível rebaixar o único usuário master do sistema.", "danger")
+                return redirect(url_for("usuarios_list"))
+            alvo.role = ROLE_PADRAO
+            flash(f'Usuário "{alvo.username}" agora é padrão.', "info")
+        else:
+            alvo.role = ROLE_MASTER
+            flash(f'Usuário "{alvo.username}" agora é master.', "success")
+
+        db.session.commit()
+        return redirect(url_for("usuarios_list"))
 
     # ---------------------------------------------------------------
     # Página estática pronta para publicar no Netlify (ou qualquer host
@@ -316,7 +396,8 @@ def register_routes(app: Flask) -> None:
     @app.route("/qr/<slug>/pagina-netlify")
     @login_required
     def qr_netlify_page(slug):
-        qr = get_owned_qrcode_or_404(slug)
+        require_master()
+        qr = get_qrcode_or_404(slug)
         html = render_template(
             "netlify_page.html",
             qr_name=qr.name,
@@ -336,7 +417,7 @@ def register_routes(app: Flask) -> None:
     @app.route("/qr/<slug>/preview.png")
     @login_required
     def qr_preview(slug):
-        qr = get_owned_qrcode_or_404(slug)
+        qr = get_qrcode_or_404(slug)
         img = build_qr_image(qr)
         data = image_to_bytes(img, "PNG")
         return send_file(
@@ -349,7 +430,7 @@ def register_routes(app: Flask) -> None:
         fmt = fmt.lower()
         if fmt not in ("png", "jpg", "pdf"):
             abort(400)
-        qr = get_owned_qrcode_or_404(slug)
+        qr = get_qrcode_or_404(slug)
         img = build_qr_image(qr)
         data = image_to_bytes(img, fmt)
         mimetypes = {"png": "image/png", "jpg": "image/jpeg", "pdf": "application/pdf"}
@@ -382,6 +463,10 @@ def register_routes(app: Flask) -> None:
     # ---------------------------------------------------------------
     # Páginas de erro
     # ---------------------------------------------------------------
+
+    @app.errorhandler(403)
+    def forbidden(_e):
+        return render_template("403.html"), 403
 
     @app.errorhandler(404)
     def not_found(_e):

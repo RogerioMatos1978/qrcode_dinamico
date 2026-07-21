@@ -1,0 +1,10 @@
+{% extends "base.html" %}
+{% block title %}Acesso negado{% endblock %}
+{% block content %}
+<div class="card" style="text-align:center;">
+  <h1>403</h1>
+  <p>Você não tem permissão para fazer isso. Essa ação é restrita ao usuário master
+    ou ao dono do QR Code.</p>
+  <a class="btn btn-primary" href="{{ url_for('dashboard') }}">Voltar ao painel</a>
+</div>
+{% endblock %}

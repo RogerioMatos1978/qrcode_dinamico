@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block title %}Usuários{% endblock %}
+{% block content %}
+<div class="page-header">
+  <h1>Usuários</h1>
+</div>
+<p class="muted small">Somente o usuário master vê esta página. Master pode editar/excluir o
+  QR Code de qualquer pessoa e é o único que enxerga o botão "Baixar página p/ Netlify".</p>
+
+<div class="card">
+  <table class="kv-table">
+    <thead>
+      <tr>
+        <th>Usuário</th>
+        <th>Papel</th>
+        <th>Criado em</th>
+        <th>Ação</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for usuario in usuarios %}
+      <tr>
+        <td>{{ usuario.username }}</td>
+        <td>{{ 'master' if usuario.is_master else 'padrão' }}</td>
+        <td>{{ usuario.created_at.strftime('%d/%m/%Y %H:%M') if usuario.created_at else '—' }}</td>
+        <td>
+          <form method="POST" action="{{ url_for('usuarios_alternar_papel', user_id=usuario.id) }}"
+                onsubmit="return confirm('{{ 'Rebaixar' if usuario.is_master else 'Promover' }} {{ usuario.username }} a {{ 'padrão' if usuario.is_master else 'master' }}?');">
+            {{ form.hidden_tag() }}
+            {% if usuario.is_master %}
+              <button type="submit" class="btn btn-small">Rebaixar a padrão</button>
+            {% else %}
+              <button type="submit" class="btn btn-small btn-primary">Promover a master</button>
+            {% endif %}
+          </form>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

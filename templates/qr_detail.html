@@ -4,13 +4,16 @@
 <div class="page-header">
   <h1>{{ qr.name }}</h1>
   <div class="header-actions">
+    {% if can_manage %}
     <a href="{{ url_for('qr_edit', slug=qr.slug) }}" class="btn">Editar</a>
     <form method="POST" action="{{ url_for('qr_delete', slug=qr.slug) }}" onsubmit="return confirm('Excluir este QR Code?');">
       {{ delete_form.hidden_tag() }}
       <button type="submit" class="btn btn-danger">Excluir</button>
     </form>
+    {% endif %}
   </div>
 </div>
+<p class="muted small">Criado por {{ qr.owner.username }}</p>
 
 <div class="detail-grid">
   <div class="card qr-preview-card">
@@ -26,7 +29,7 @@
       <a class="btn btn-small" href="{{ url_for('qr_download', slug=qr.slug, fmt='jpg') }}">Baixar JPG</a>
       <a class="btn btn-small" href="{{ url_for('qr_download', slug=qr.slug, fmt='pdf') }}">Baixar PDF</a>
     </div>
-    {% if qr.android_url or qr.ios_url %}
+    {% if current_user.is_master and (qr.android_url or qr.ios_url) %}
     <div class="download-row">
       <a class="btn btn-small" href="{{ url_for('qr_netlify_page', slug=qr.slug) }}">Baixar página p/ Netlify (index.html)</a>
     </div>

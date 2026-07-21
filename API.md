@@ -32,6 +32,20 @@ Rotas sem `@login_required` são públicas: `/registrar`, `/login`, `/r/<slug>`.
 Todas as outras exigem sessão autenticada e retornam **302** (redirecionamento
 para `/login`) se não houver login.
 
+### Papéis: master x padrão
+
+Todo usuário tem um campo `role`: `"master"` ou `"padrao"`. O primeiro
+usuário cadastrado no sistema vira `master` automaticamente; os demais
+nascem `padrao`. Isso afeta as rotas assim:
+
+| Ação | padrão | master |
+|---|---|---|
+| Ver `/dashboard` e `/qr/<slug>` de qualquer usuário | sim | sim |
+| Editar/excluir **o próprio** QR Code | sim | sim |
+| Editar/excluir QR Code **de outro usuário** | não (`403`) | sim |
+| `GET /qr/<slug>/pagina-netlify` | não (`403`) | sim |
+| `GET /usuarios`, `POST /usuarios/<id>/papel` | não (`403`) | sim |
+
 ---
 
 ## `POST /registrar`
@@ -89,8 +103,10 @@ Encerra a sessão. Requer login. Retorna `302` → `/login`.
 
 ## `GET /dashboard`
 
-Lista os QR Codes do usuário logado. Sem parâmetros. Retorna `200` com a
-página HTML. Sem QR Codes cadastrados, mostra estado vazio (não é erro).
+Lista **todos** os QR Codes do sistema (de qualquer usuário) — painel
+compartilhado. Sem parâmetros. Retorna `200` com a página HTML. Os botões de
+editar/excluir só aparecem, por QR Code, para o dono dele ou para o master.
+Sem QR Codes cadastrados, mostra estado vazio (não é erro).
 
 ---
 
@@ -131,13 +147,14 @@ essa checagem não é feita pelo WTForms, é manual no `app.py`.
 ## `GET /qr/<slug>`
 
 Detalhe de um QR Code (destinos configurados, aparência, botões de download).
-Requer login **e** ser o dono do QR Code.
+Requer login; qualquer usuário logado pode ver (painel compartilhado). Os
+botões "Editar"/"Excluir" só aparecem se for o dono do QR Code ou master, e o
+botão "Baixar página p/ Netlify" só aparece para master.
 
 **Retorno:** `200` com a página HTML.
 
 **Erros possíveis:**
-- `404` — slug não existe, ou existe mas pertence a outro usuário (mensagem
-  igual nos dois casos, de propósito).
+- `404` — slug não existe.
 
 ---
 
@@ -151,14 +168,18 @@ Mesmos campos e regras de `POST /qr/novo`, mais:
 
 Se `logo` vier preenchido, ele substitui o logo atual (tem prioridade sobre `remove_logo`).
 
+Requer ser o dono do QR Code **ou** ser master.
+
 **Retorno:** `302` → `/qr/<slug>` em caso de sucesso; `200` (form com erro) em caso de falha.
-**Erros:** `404` (mesmas condições do detalhe).
+**Erros:**
+- `404` — slug não existe.
+- `403` — usuário padrão tentando editar QR Code de outra pessoa.
 
 ---
 
 ## `POST /qr/<slug>/excluir`
 
-Exclui o QR Code. Requer login e posse do QR Code.
+Exclui o QR Code. Requer login e ser o dono do QR Code **ou** ser master.
 
 **Parâmetros:** só `csrf_token`.
 
@@ -166,7 +187,8 @@ Exclui o QR Code. Requer login e posse do QR Code.
 
 **Erros possíveis:**
 - `400` — token CSRF ausente/inválido.
-- `404` — QR Code não encontrado / não é do usuário.
+- `404` — QR Code não encontrado.
+- `403` — usuário padrão tentando excluir QR Code de outra pessoa.
 
 ---
 
@@ -174,11 +196,14 @@ Exclui o QR Code. Requer login e posse do QR Code.
 
 Baixa um `index.html` autocontido (HTML+CSS+JS, sem dependências) já
 preenchido com `android_url`/`ios_url` do QR Code, pronto para publicar em
-qualquer host estático (Netlify, GitHub Pages etc). Requer login e posse.
+qualquer host estático (Netlify, GitHub Pages etc). **Restrito ao usuário
+master.**
 
 **Retorno:** `200`, `Content-Type: text/html`, `Content-Disposition: attachment; filename=index.html`.
 
-**Erros possíveis:** `404` (mesmas condições acima).
+**Erros possíveis:**
+- `403` — usuário logado não é master.
+- `404` — slug não existe.
 
 ---
 
@@ -186,10 +211,11 @@ qualquer host estático (Netlify, GitHub Pages etc). Requer login e posse.
 
 Gera a imagem do QR Code (com degradê, borda, logo e legenda atuais) e retorna
 inline — é o `src` usado nos `<img>` do painel e da tela de detalhe. Requer
-login e posse. **Não tem cache**: reprocessa a imagem a cada chamada.
+login (qualquer usuário logado, não só o dono — painel compartilhado). **Não
+tem cache**: reprocessa a imagem a cada chamada.
 
 **Retorno:** `200`, `Content-Type: image/png`.
-**Erros:** `404` (mesmas condições acima).
+**Erros:** `404` — slug não existe.
 
 ---
 
@@ -208,7 +234,36 @@ de `name` (caracteres não alfanuméricos removidos).
 
 **Erros possíveis:**
 - `400` — `fmt` fora de `png`/`jpg`/`pdf`.
-- `404` — QR Code não encontrado / não é do usuário.
+- `404` — QR Code não encontrado.
+
+---
+
+## `GET /usuarios`
+
+Lista todos os usuários cadastrados e o papel de cada um. **Restrito ao
+usuário master.**
+
+**Retorno:** `200` com a página HTML.
+**Erros possíveis:** `403` — usuário logado não é master.
+
+---
+
+## `POST /usuarios/<id>/papel`
+
+Alterna o papel do usuário `<id>`: se ele era `padrao` vira `master`, se era
+`master` vira `padrao`. **Restrito ao usuário master.**
+
+**Parâmetros:** só `csrf_token`.
+
+**Retorno:** `302` → `/usuarios`.
+
+**Erros possíveis:**
+- `400` — token CSRF ausente/inválido.
+- `403` — usuário logado não é master.
+- `404` — `<id>` não corresponde a nenhum usuário.
+- Rebaixar o **último** usuário master do sistema é bloqueado (fica como
+  master, com uma mensagem flash explicando — não retorna erro HTTP, só não
+  aplica a mudança).
 
 ---
 
@@ -286,8 +341,8 @@ Location: /qr/9tiErpnF
 
 ## Modelos de dados (para referência)
 
-**`User`** (`models.py`): `id`, `username`, `password_hash`,
-`created_at`, `failed_login_attempts`, `locked_until`.
+**`User`** (`models.py`): `id`, `username`, `password_hash`, `role`
+(`"master"` ou `"padrao"`), `created_at`, `failed_login_attempts`, `locked_until`.
 
 **`QRCode`** (`models.py`): `id`, `user_id`, `name`, `slug`, `android_url`,
 `ios_url`, `desktop_url`, `color_start`, `color_end`, `gradient_direction`,

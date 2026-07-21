@@ -15,6 +15,10 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from extensions import db
 
 
+ROLE_MASTER = "master"
+ROLE_PADRAO = "padrao"
+
+
 class User(UserMixin, db.Model):
     __tablename__ = "users"
 
@@ -22,6 +26,12 @@ class User(UserMixin, db.Model):
     username = db.Column(db.String(80), unique=True, nullable=False, index=True)
     password_hash = db.Column(db.String(255), nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    # Papel do usuário: "master" (controle total, pode excluir/editar QR Code
+    # de qualquer pessoa e gerenciar outros usuários) ou "padrao" (só pode
+    # editar/excluir os próprios QR Codes). O primeiro usuário cadastrado no
+    # sistema vira master automaticamente (veja rota /registrar em app.py).
+    role = db.Column(db.String(20), nullable=False, default=ROLE_PADRAO)
 
     # Proteção extra contra força bruta: contamos tentativas falhas
     failed_login_attempts = db.Column(db.Integer, default=0)
@@ -40,6 +50,14 @@ class User(UserMixin, db.Model):
 
     def is_locked(self) -> bool:
         return bool(self.locked_until and self.locked_until > datetime.utcnow())
+
+    @property
+    def is_master(self) -> bool:
+        return self.role == ROLE_MASTER
+
+    def can_manage(self, qr: "QRCode") -> bool:
+        """Master pode editar/excluir qualquer QR Code; usuário padrão só os próprios."""
+        return self.is_master or qr.user_id == self.id
 
 
 class QRCode(db.Model):
